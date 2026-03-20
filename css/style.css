@@ -1,0 +1,102 @@
+body { margin: 0; overflow: hidden; background-color: #000; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; user-select: none; color: white; touch-action: none; }
+        
+/* HUD ELEMENTS */
+#points-hud { position: absolute; top: 20px; left: 20px; color: #2ecc71; font-size: 28px; font-weight: 900; z-index: 10; pointer-events: none; text-shadow: 2px 2px 4px rgba(0,0,0,0.8); letter-spacing: 1px; }
+#money-popup { position: absolute; top: 60px; left: 20px; color: #2ecc71; font-size: 24px; font-weight: bold; opacity: 0; pointer-events: none; z-index: 10; transition: all 0.5s; text-shadow: 1px 1px 2px #000; }
+
+#wave-hud { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); color: #e74c3c; font-size: 32px; font-weight: 900; z-index: 10; pointer-events: none; text-shadow: 2px 2px 4px #000; text-transform: uppercase; text-align: center;}
+#wave-sub { font-size: 16px; color: #fff; display: block; }
+
+#health-hud { position: absolute; bottom: 20px; left: 20px; display: flex; align-items: center; gap: 15px; background: rgba(20, 0, 0, 0.7); padding: 10px 20px; border-radius: 12px; border: 2px solid #550000; z-index: 10; pointer-events: none; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+.health-icon { color: #ff3333; font-size: 28px; text-shadow: 0 0 10px #ff0000; }
+.health-bar-container { width: 200px; height: 18px; background: #222; border-radius: 10px; overflow: hidden; border: 2px solid #111; box-shadow: inset 0 2px 5px rgba(0,0,0,0.8); }
+#health-bar-fill { width: 100%; height: 100%; background: linear-gradient(90deg, #aa0000, #ff3333); transition: width 0.2s ease-out; }
+#health-text { color: white; font-size: 28px; font-weight: bold; width: 60px; text-align: right; text-shadow: 1px 1px 2px #000; }
+
+/* HUD DE INVENTARIO */
+#inventory-hud { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; z-index: 10; pointer-events: none; }
+.inv-slot { background: rgba(0,0,0,0.6); border: 2px solid #333; padding: 8px 15px; border-radius: 8px; color: #aaa; font-weight: bold; font-size: 14px; opacity: 0.4; transition: all 0.2s ease-out; box-shadow: 0 2px 5px rgba(0,0,0,0.5); }
+.inv-slot.unlocked { opacity: 0.8; color: #fff; border-color: #777; }
+.inv-slot.active { opacity: 1; color: #ffcc00; border-color: #ffcc00; transform: translateY(-10px) scale(1.05); background: rgba(50,50,0,0.8); box-shadow: 0 0 15px rgba(255,204,0,0.4); }
+.inv-slot .key { color: #fff; background: #222; padding: 2px 6px; border-radius: 4px; margin-right: 5px; font-size: 12px; }
+
+/* DAÑO FLOTANTE ESTILO FORTNITE */
+#floating-damage-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 100; overflow: hidden; }
+.floating-dmg { position: absolute; font-weight: 900; font-style: italic; text-shadow: 2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000; animation: floatUp 0.8s cubic-bezier(0.2, 1, 0.3, 1) forwards; transform: translate(-50%, -50%); }
+@keyframes floatUp { 0% { opacity: 1; margin-top: 0px; transform: translate(-50%, -50%) scale(0.5); } 20% { transform: translate(-50%, -50%) scale(1.2); } 100% { opacity: 0; margin-top: -60px; transform: translate(-50%, -50%) scale(1); } }
+.dmg-head { color: #ffcc00; font-size: 32px; }
+.dmg-body { color: #ffffff; font-size: 24px; }
+.dmg-limb { color: #aaaaaa; font-size: 18px; }
+
+/* INDICADOR VISUAL DE SONIDO */
+#visual-audio-container { position: absolute; top: 50%; left: 50%; width: 0; height: 0; z-index: 9; pointer-events: none; }
+.blip-wrapper { position: absolute; top: 50%; left: 50%; width: 250px; height: 250px; margin-left: -125px; margin-top: -125px; pointer-events: none; transition: transform 0.1s linear; }
+.blip-arc { position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 50px; height: 15px; background: radial-gradient(ellipse, rgba(255,100,0,0.9) 0%, transparent 70%); border-radius: 50%; box-shadow: 0 0 10px rgba(255,0,0,0.5); }
+
+#weapon-info { position: absolute; bottom: 85px; right: 30px; color: #ffcc00; font-size: 22px; font-weight: bold; z-index: 10; text-align: right; text-transform: uppercase; text-shadow: 2px 2px 0px #000; pointer-events: none; }
+#ammo-hud { position: absolute; bottom: 35px; right: 30px; color: #ffffff; font-size: 36px; font-weight: bold; z-index: 10; pointer-events: none; text-shadow: 2px 2px 0px #000; }
+#grenade-hud { position: absolute; bottom: 40px; right: 200px; color: #fff; font-size: 20px; font-weight: bold; background: rgba(0,0,0,0.6); padding: 5px 15px; border-radius: 8px; z-index: 10; pointer-events: none; border: 1px solid #555; }
+#interact-prompt { position: absolute; top: 70%; left: 50%; transform: translate(-50%, -50%); color: #fff; font-size: 20px; font-weight: bold; background: rgba(0,0,0,0.8); padding: 10px 20px; border-radius: 8px; border: 1px solid #fff; z-index: 10; display: none; pointer-events: none; }
+
+#reload-text { position: absolute; top: 60%; left: 50%; transform: translate(-50%, -50%); color: #ffcc00; font-size: 24px; font-weight: bold; z-index: 10; display: none; text-shadow: 1px 1px 2px #000; pointer-events: none; }
+#crosshair { position: absolute; top: 50%; left: 50%; width: 14px; height: 14px; background: transparent; border: 2px solid rgba(255,255,255,0.8); border-radius: 50%; transform: translate(-50%, -50%) scale(1); pointer-events: none; z-index: 10; transition: transform 0.15s ease-out; box-shadow: 0 0 4px rgba(0,0,0,0.8); }
+
+#damage-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: #ff0000; opacity: 0; pointer-events: none; z-index: 15; transition: opacity 0.2s; }
+#flash-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: #ffffff; opacity: 0; pointer-events: none; z-index: 16; transition: opacity 0.1s; }
+
+/* SISTEMA DE MENÚS */
+#ui-layer { position: absolute; width: 100%; height: 100%; z-index: 20; display: flex; justify-content: center; align-items: center; background-color: rgba(0,0,0,0.85); backdrop-filter: blur(4px); }
+.grid-bg { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-image: linear-gradient(#0f0 1px, transparent 1px), linear-gradient(90deg, #0f0 1px, transparent 1px); background-size: 40px 40px; opacity: 0.1; z-index: 0; pointer-events: none; }
+
+.screen { z-index: 1; display: flex; flex-direction: column; align-items: center; width: 100%; }
+h1 { font-size: 4rem; font-weight: 900; margin: 0 0 40px 0; letter-spacing: 2px; text-shadow: 0 0 20px rgba(255, 255, 255, 0.3); text-align: center; }
+h2 { font-size: 2.5rem; margin: 0 0 30px 0; color: #ffcc00; text-shadow: 0 0 10px rgba(255,204,0,0.5); }
+
+.cards-container { display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; margin-bottom: 30px; }
+.card { width: 280px; padding: 24px; border-radius: 12px; cursor: pointer; text-align: left; transition: transform 0.2s, box-shadow 0.2s; display: flex; flex-direction: column; gap: 10px; }
+.card:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
+.card-icon { font-size: 2rem; }
+.card-title { font-size: 1.5rem; font-weight: bold; margin: 0; }
+.card-desc { font-size: 0.9rem; opacity: 0.8; line-height: 1.4; margin: 0; }
+#card-classic { background: linear-gradient(to bottom right, #14532d, #15803d); border: 2px solid #22c55e; }
+#card-survival { background: linear-gradient(to bottom right, #7f1d1d, #b91c1c); border: 2px solid #ef4444; }
+#card-rush { background: linear-gradient(to bottom right, #713f12, #a16207); border: 2px solid #eab308; }
+
+.menu-btn { background: #222; color: white; border: 2px solid #555; padding: 15px 30px; font-size: 1.2rem; cursor: pointer; border-radius: 8px; transition: 0.2s; width: 300px; margin: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;}
+.menu-btn:hover { background: #444; border-color: #888; transform: scale(1.05); }
+.menu-btn.danger:hover { background: #550000; border-color: #ff3333; }
+
+.options-panel { background: rgba(0,0,0,0.5); border: 1px solid #333; padding: 30px; border-radius: 12px; width: 600px; margin-bottom: 20px; max-height: 60vh; overflow-y: auto; }
+.setting-group { margin-bottom: 25px; }
+.setting-group h3 { margin: 0 0 15px 0; color: #aaa; border-bottom: 1px solid #444; padding-bottom: 5px; }
+
+.slider-container { display: flex; align-items: center; gap: 15px; }
+input[type="range"] { flex-grow: 1; cursor: pointer; }
+
+.keybind-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+.keybind-row { display: flex; justify-content: space-between; align-items: center; background: #1a1a1a; padding: 8px 15px; border-radius: 6px; border: 1px solid #333; }
+.key-btn { background: #333; border: 1px solid #666; color: white; padding: 6px 12px; cursor: pointer; border-radius: 4px; font-weight: bold; min-width: 80px; transition: 0.2s; }
+.key-btn:hover { background: #555; }
+.key-btn.waiting { background: #ffcc00; color: black; border-color: white; animation: pulse 1s infinite; }
+
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: #111; border-radius: 4px; }
+::-webkit-scrollbar-thumb { background: #555; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #777; }
+
+/* CONTROLES MÓVILES */
+#mobile-controls { position: absolute; top:0; left:0; width:100%; height:100%; z-index: 25; display: none; pointer-events: none; }
+.mob-btn { position: absolute; background: rgba(255,255,255,0.15); border: 2px solid rgba(255,255,255,0.3); border-radius: 50%; color: white; font-weight: bold; pointer-events: auto; display: flex; justify-content: center; align-items: center; user-select: none; }
+.mob-btn:active { background: rgba(255,255,255,0.4); }
+#joystick-zone { position: absolute; bottom: 20px; left: 20px; width: 150px; height: 150px; background: rgba(255,255,255,0.1); border-radius: 50%; pointer-events: auto; }
+#joystick-knob { position: absolute; top: 50%; left: 50%; width: 60px; height: 60px; background: rgba(255,255,255,0.5); border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; }
+#look-zone { position: absolute; top: 0; right: 0; width: 50%; height: 100%; pointer-events: auto; }
+
+#btn-shoot { bottom: 40px; right: 40px; width: 80px; height: 80px; font-size: 24px; background: rgba(255,0,0,0.3); border-color: rgba(255,0,0,0.5); }
+#btn-reload { bottom: 140px; right: 40px; width: 60px; height: 60px; font-size: 14px; }
+#btn-jump { bottom: 40px; right: 140px; width: 60px; height: 60px; font-size: 14px; }
+#btn-interact { top: 40px; right: 40px; width: 70px; height: 70px; font-size: 16px; background: rgba(0,255,0,0.3); display: none; }
+#btn-swap { bottom: 220px; right: 40px; width: 60px; height: 60px; font-size: 14px; }
+
+@keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
+@media (max-width: 768px) { .health-bar-container { width: 100px; } h1 { font-size: 2.2rem; } .keybind-grid { grid-template-columns: 1fr; } #inventory-hud{ display: none; } }
