@@ -20,12 +20,12 @@ function setupMultiplayerConnection(conn) {
     conn.on('data', (data) => {
         if (isHost) {
             if (data.type === 'player_pos') {
-                otherPlayersData[conn.peer] = { x: data.x, y: data.y, z: data.z, rot: data.rot };
+                // Ahora el Host guarda también si el jugador está en pausa
+                otherPlayersData[conn.peer] = { x: data.x, y: data.y, z: data.z, rot: data.rot, isPaused: data.isPaused };
             } else if (data.type === 'shoot') {
                 playShootSound();
                 connections.forEach(c => { if(c.peer !== conn.peer) c.send({type:'shoot'}); });
             } else if (data.type === 'hit_zombie') {
-                // El Host valida y aplica el daño centralizado
                 let hitPos = new THREE.Vector3(data.hitPoint.x, data.hitPoint.y, data.hitPoint.z);
                 damageZombie(data.zId, data.damage, data.part, hitPos);
             }
@@ -33,7 +33,6 @@ function setupMultiplayerConnection(conn) {
             if (data.type === 'start_game') {
                 isLobby = false; actualizarHUD();
             } else if (data.type === 'world_state') {
-                // Sincronizar Jugadores
                 let allPlayers = data.players;
                 for (let id in allPlayers) {
                     if (id === myRoomId) continue;
@@ -44,10 +43,8 @@ function setupMultiplayerConnection(conn) {
                     otherPlayersData[id] = allPlayers[id];
                 }
                 
-                // Sincronizar Zombies
                 if (data.zombies) syncClientZombies(data.zombies);
                 
-                // Sincronizar Oleadas
                 if (data.waveInfo) {
                     oleadaActual = data.waveInfo.oleada;
                     zombiesRestantes = data.waveInfo.restantes;
@@ -75,7 +72,7 @@ function playShootSound() {
 function iniciarPartidaMultijugador() {
     let sm = document.getElementById('screen-multiplayer'); if(sm) sm.style.display = 'none';
     let ul = document.getElementById('ui-layer'); if(ul) ul.style.display = 'none';
-    resumeAudio(); isGameActive = true; isLobby = true; resetGame();
+    resumeAudio(); isGameActive = true; isPaused = false; isLobby = true; resetGame();
     
     camera.position.set((Math.random()-0.5)*4, 1.6, (Math.random()-0.5)*4); 
     

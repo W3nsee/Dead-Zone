@@ -1,26 +1,28 @@
 // === LOGICA ANTI-CRASHEOS Y EVENTOS ===
 let prevScreen = 'screen-main'; 
+let isPaused = false; // Nueva variable global para aislar la pausa del jugador
 
 function showScreen(idToShow) {
     const screens = ['screen-main', 'screen-pause', 'screen-multiplayer', 'screen-options', 'screen-gameover'];
     screens.forEach(s => { 
         let el = document.getElementById(s); 
-        if(el) {
-            if (el.style.display !== 'none' && s !== 'screen-options' && idToShow === 'screen-options') {
-                prevScreen = s;
-            }
-            el.style.display = 'none'; 
-        }
+        if(el) el.style.display = 'none'; 
     });
     
-    let target = document.getElementById(idToShow); if(target) target.style.display = 'flex';
-    let ui = document.getElementById('ui-layer'); if(ui) ui.style.display = 'flex';
+    let target = document.getElementById(idToShow); 
+    if(target) target.style.display = 'flex';
+    
+    let ui = document.getElementById('ui-layer'); 
+    if(ui) ui.style.display = 'flex';
     
     let hud = document.getElementById('room-code-hud');
     if(hud) hud.style.display = 'none';
 }
 
-function addEvt(id, eventType, callback) { let el = document.getElementById(id); if(el) el.addEventListener(eventType, callback); }
+function addEvt(id, eventType, callback) { 
+    let el = document.getElementById(id); 
+    if(el) el.addEventListener(eventType, callback); 
+}
 
 function actualizarCartelSala(codigo, esHost) {
     let hud = document.getElementById('room-code-hud');
@@ -41,9 +43,11 @@ function actualizarCartelSala(codigo, esHost) {
 }
 
 addEvt('card-classic', 'click', () => { 
-    resumeAudio(); isGameActive = true; isMultiplayer = false; isLobby = false; 
-    let ui = document.getElementById('ui-layer'); if(ui) ui.style.display = 'none'; 
-    resetGame(); if(!isMobile) controls.lock(); 
+    try {
+        resumeAudio(); isGameActive = true; isPaused = false; isMultiplayer = false; isLobby = false; 
+        let ui = document.getElementById('ui-layer'); if(ui) ui.style.display = 'none'; 
+        resetGame(); if(!isMobile) controls.lock(); 
+    } catch(e) { console.error("Error iniciando partida:", e); }
 });
 
 addEvt('card-multiplayer', 'click', () => {
@@ -79,23 +83,32 @@ addEvt('btn-join-room', 'click', () => {
     }); 
 });
 
-// FIX POINTER LOCK AQUÍ:
 addEvt('btn-resume', 'click', () => { 
     let ui = document.getElementById('ui-layer'); if(ui) ui.style.display = 'none'; 
-    resumeAudio(); isGameActive = true; prevTime = performance.now(); 
+    resumeAudio(); isPaused = false; prevTime = performance.now(); 
     if(!isMobile) controls.lock(); 
 });
 
-addEvt('btn-options', 'click', () => { showScreen('screen-options'); }); 
-addEvt('btn-options-pause', 'click', () => { showScreen('screen-options'); }); 
+addEvt('btn-options', 'click', () => { prevScreen = 'screen-main'; showScreen('screen-options'); }); 
+addEvt('btn-options-pause', 'click', () => { prevScreen = 'screen-pause'; showScreen('screen-options'); }); 
 addEvt('btn-back', 'click', () => { showScreen(prevScreen); }); 
-addEvt('btn-quit', 'click', () => { location.reload(); }); addEvt('btn-restart', 'click', () => { location.reload(); }); addEvt('btn-tomenu-death', 'click', () => { location.reload(); });
+
+addEvt('btn-quit', 'click', () => { location.reload(); }); 
+addEvt('btn-restart', 'click', () => { location.reload(); }); 
+addEvt('btn-tomenu-death', 'click', () => { location.reload(); });
 
 function resetGame() {
     puntos = 500; salud = 100; granadas = 2; oleadaActual = 1; zombiesRestantes = 5; estadoOleada = "activa"; zombiesVivos = 0; holdStartProgress = 0; holdingStart = false;
     misArmas.pistola = { mag: 15, res: 90, desbloqueada: true }; misArmas.escopeta = { mag: 8, res: 32, desbloqueada: false }; misArmas.rifle = { mag: 30, res: 150, desbloqueada: false };
-    zombiesArray.forEach(z => { scene.remove(z.mesh); if(z.audio && z.audio.isPlaying) z.audio.stop(); }); zombiesArray.length = 0; 
-    medkits.forEach(m => scene.remove(m)); medkits.length = 0; activeBullets.forEach(b => scene.remove(b.mesh)); activeBullets.length = 0;
+    isPaused = false;
+    
+    try {
+        zombiesArray.forEach(z => { scene.remove(z.mesh); if(z.audio && z.audio.isPlaying) z.audio.stop(); }); 
+        zombiesArray.length = 0; 
+        medkits.forEach(m => scene.remove(m)); medkits.length = 0; 
+        activeBullets.forEach(b => scene.remove(b.mesh)); activeBullets.length = 0;
+    } catch(e) {}
+
     equipWeapon('pistola'); recargando = false; isAiming = false; isSprinting = false; isCrouching = false; isSliding = false;
     let rt = document.getElementById('reload-text'); if(rt) rt.style.display = 'none'; 
     
@@ -191,11 +204,19 @@ function procesarCompra(t) {
 
 // === CONTROLES PC ===
 let moveF = false, moveB = false, moveL = false, moveR = false; const controls = new THREE.PointerLockControls(camera, document.body); if(!isMobile) cameraGroup.add(controls.getObject());
-controls.addEventListener('unlock', () => { isAiming = false; isSprinting = false; isCrouching = false; isShooting = false; if (isGameActive && salud > 0) { isGameActive = false; showScreen('screen-pause'); } });
+
+// CORRECCIÓN: Al desbloquear el ratón, solo se pausa al jugador local, pero el juego (servidor) sigue corriendo
+controls.addEventListener('unlock', () => { 
+    isAiming = false; isSprinting = false; isCrouching = false; isShooting = false; 
+    if (isGameActive && salud > 0 && !isLobby) { 
+        isPaused = true; 
+        showScreen('screen-pause'); 
+    } 
+});
 
 document.addEventListener('keydown', (e) => {
     if (waitingForKeyAction) { if (e.code === 'Escape') return; keyMap[waitingForKeyAction] = e.code; activeKeyBtn.classList.remove('waiting'); activeKeyBtn.innerText = formatKey(e.code); waitingForKeyAction = null; activeKeyBtn = null; return; }
-    if (!isGameActive || (!controls.isLocked && !isMobile)) return;
+    if (!isGameActive || isPaused || (!controls.isLocked && !isMobile)) return;
     if (e.code === keyMap.forward) moveF = true; if (e.code === keyMap.backward) moveB = true; if (e.code === keyMap.left) moveL = true; if (e.code === keyMap.right) moveR = true;
     if (e.code === keyMap.sprint && !isAiming && !recargando && !isCrouching) isSprinting = true; if (e.code === keyMap.jump && canJump && !recargando && !isCrouching && !isSliding) { velocity.y = 12.0; canJump = false; }
     if (e.code === keyMap.reload) recargarArma(); if (e.code === keyMap.grenade) lanzarGranada();
@@ -210,7 +231,7 @@ document.addEventListener('keyup', (e) => {
     if (e.code === keyMap.interact) holdingStart = false;
 });
 
-document.addEventListener('mousedown', (e) => { if ((controls.isLocked || isMobile) && !recargando && !isLobby) { if (e.button === 0) { isShooting = true; let t = performance.now(); if (!armasConfig[armaActual].auto && t - lastShootTime >= armasConfig[armaActual].cooldownMs) { procesarDisparo(t); if(isMultiplayer && connections.length>0) { if(isHost) connections.forEach(c=>c.send({type:'shoot'})); else connections[0].send({type:'shoot'}); } } } else if (e.button === 2) { isAiming = true; isSprinting = false; } } });
+document.addEventListener('mousedown', (e) => { if ((controls.isLocked || isMobile) && !recargando && !isLobby && !isPaused) { if (e.button === 0) { isShooting = true; let t = performance.now(); if (!armasConfig[armaActual].auto && t - lastShootTime >= armasConfig[armaActual].cooldownMs) { procesarDisparo(t); if(isMultiplayer && connections.length>0) { if(isHost) connections.forEach(c=>c.send({type:'shoot'})); else connections[0].send({type:'shoot'}); } } } else if (e.button === 2) { isAiming = true; isSprinting = false; } } });
 document.addEventListener('mouseup', (e) => { if (e.button === 0) isShooting = false; if (e.button === 2) isAiming = false; });
 
 // === CONTROLES MÓVILES ===
@@ -225,22 +246,29 @@ if(isMobile) {
     function updateJoystick(x, y) { let dx = x - joyStartX, dy = y - joyStartY; let dist = Math.sqrt(dx*dx + dy*dy); let maxDist = 40; if(dist > maxDist) { dx = (dx/dist)*maxDist; dy = (dy/dist)*maxDist; } if(jk) jk.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`; moveF = dy < -10; moveB = dy > 10; moveL = dx < -10; moveR = dx > 10; }
     if(lz) {
         lz.addEventListener('touchstart', (e) => { e.preventDefault(); let touch = e.changedTouches[0]; lookId = touch.identifier; lookLastX = touch.clientX; lookLastY = touch.clientY; }, {passive: false});
-        lz.addEventListener('touchmove', (e) => { e.preventDefault(); if(!isGameActive) return; for(let i=0; i<e.changedTouches.length; i++) { let touch = e.changedTouches[i]; if(touch.identifier === lookId) { let mX = touch.clientX - lookLastX; let mY = touch.clientY - lookLastY; euler.setFromQuaternion(camera.quaternion); euler.y -= mX * 0.005; euler.x -= mY * 0.005; euler.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, euler.x)); camera.quaternion.setFromEuler(euler); lookLastX = touch.clientX; lookLastY = touch.clientY; } } }, {passive: false});
+        lz.addEventListener('touchmove', (e) => { e.preventDefault(); if(!isGameActive || isPaused) return; for(let i=0; i<e.changedTouches.length; i++) { let touch = e.changedTouches[i]; if(touch.identifier === lookId) { let mX = touch.clientX - lookLastX; let mY = touch.clientY - lookLastY; euler.setFromQuaternion(camera.quaternion); euler.y -= mX * 0.005; euler.x -= mY * 0.005; euler.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, euler.x)); camera.quaternion.setFromEuler(euler); lookLastX = touch.clientX; lookLastY = touch.clientY; } } }, {passive: false});
         const endLook = (e) => { for(let i=0; i<e.changedTouches.length; i++) { if(e.changedTouches[i].identifier === lookId) lookId = null; } }; lz.addEventListener('touchend', endLook); lz.addEventListener('touchcancel', endLook);
     }
-    addEvt('btn-shoot', 'touchstart', (e)=>{ e.preventDefault(); if(isLobby) return; isShooting=true; let t = performance.now(); if(!armasConfig[armaActual].auto && t - lastShootTime >= armasConfig[armaActual].cooldownMs) { procesarDisparo(t); if(isMultiplayer && connections.length>0) { if(isHost) connections.forEach(c=>c.send({type:'shoot'})); else connections[0].send({type:'shoot'}); } } });
-    addEvt('btn-shoot', 'touchend', (e)=>{ e.preventDefault(); isShooting=false; }); addEvt('btn-jump', 'touchstart', (e)=>{ e.preventDefault(); if(canJump){velocity.y=12; canJump=false;} });
-    addEvt('btn-reload', 'touchstart', (e)=>{ e.preventDefault(); recargarArma(); }); 
-    addEvt('btn-interact', 'touchstart', (e)=>{ e.preventDefault(); if(isLobby && isHost) holdingStart = true; else if(currentShopTarget && !isLobby) procesarCompra(currentShopTarget); });
+    addEvt('btn-shoot', 'touchstart', (e)=>{ e.preventDefault(); if(isLobby || isPaused) return; isShooting=true; let t = performance.now(); if(!armasConfig[armaActual].auto && t - lastShootTime >= armasConfig[armaActual].cooldownMs) { procesarDisparo(t); if(isMultiplayer && connections.length>0) { if(isHost) connections.forEach(c=>c.send({type:'shoot'})); else connections[0].send({type:'shoot'}); } } });
+    addEvt('btn-shoot', 'touchend', (e)=>{ e.preventDefault(); isShooting=false; }); addEvt('btn-jump', 'touchstart', (e)=>{ e.preventDefault(); if(canJump && !isPaused){velocity.y=12; canJump=false;} });
+    addEvt('btn-reload', 'touchstart', (e)=>{ e.preventDefault(); if(!isPaused) recargarArma(); }); 
+    addEvt('btn-interact', 'touchstart', (e)=>{ e.preventDefault(); if(isLobby && isHost) holdingStart = true; else if(currentShopTarget && !isLobby && !isPaused) procesarCompra(currentShopTarget); });
     addEvt('btn-interact', 'touchend', (e)=>{ e.preventDefault(); holdingStart = false; });
-    addEvt('btn-swap', 'touchstart', (e)=>{ e.preventDefault(); if(armaActual==='pistola' && misArmas.escopeta.desbloqueada) equipWeapon('escopeta'); else if(armaActual==='escopeta' && misArmas.rifle.desbloqueada) equipWeapon('rifle'); else equipWeapon('pistola'); });
+    addEvt('btn-swap', 'touchstart', (e)=>{ e.preventDefault(); if(!isPaused){ if(armaActual==='pistola' && misArmas.escopeta.desbloqueada) equipWeapon('escopeta'); else if(armaActual==='escopeta' && misArmas.rifle.desbloqueada) equipWeapon('rifle'); else equipWeapon('pistola'); } });
 }
 
 camera.position.y = 1.6; const velocity = new THREE.Vector3(); const direction = new THREE.Vector3(); let prevTime = performance.now();
 
+function handleGameOver() {
+    isGameActive = false; if(!isMobile) controls.unlock();
+    let gs = document.getElementById('gameover-stats'); if(gs) gs.innerText = `Ronda Alcanzada: ${oleadaActual} | Dinero Obtenido: $${puntos}`; showScreen('screen-gameover');
+}
+
 // === BUCLE PRINCIPAL (ANIMATE) ===
 function animate() {
-    requestAnimationFrame(animate); if (!isGameActive) return;
+    requestAnimationFrame(animate); 
+    if (!isGameActive) return; // Si estamos en el menú de inicio no hacemos nada
+    
     const time = performance.now(); const delta = Math.min((time - prevTime) / 1000, 0.1); 
     
     // RED MULTIJUGADOR AVANZADA (N-Jugadores)
@@ -248,7 +276,7 @@ function animate() {
         let eul = new THREE.Euler(0,0,0, 'YXZ'); eul.setFromQuaternion(camera.quaternion);
         
         if (isHost) {
-            otherPlayersData[myRoomId] = { x: camera.position.x, y: camera.position.y - 1.6, z: camera.position.z, rot: eul.y };
+            otherPlayersData[myRoomId] = { x: camera.position.x, y: camera.position.y - 1.6, z: camera.position.z, rot: eul.y, isPaused: isPaused };
             
             let zombiesData = zombiesArray.map(z => ({
                 id: z.id, x: z.mesh.position.x, y: z.mesh.position.y, z: z.mesh.position.z,
@@ -265,7 +293,7 @@ function animate() {
             }
         } else {
             if (Math.random() < 0.5 && connections.length > 0) { 
-                connections[0].send({ type: 'player_pos', x: camera.position.x, y: camera.position.y - 1.6, z: camera.position.z, rot: eul.y });
+                connections[0].send({ type: 'player_pos', x: camera.position.x, y: camera.position.y - 1.6, z: camera.position.z, rot: eul.y, isPaused: isPaused });
             }
         }
 
@@ -277,7 +305,7 @@ function animate() {
         }
     }
 
-    checkShopInteraction();
+    if (!isPaused) checkShopInteraction();
 
     if (isLobby) {
         if (isHost && holdingStart) {
@@ -293,7 +321,7 @@ function animate() {
             }
         } else { holdStartProgress = Math.max(0, holdStartProgress - delta * 2); }
     } else {
-        // --- IA Y OLEADAS (Solo HOST o SINGLEPLAYER) ---
+        // --- IA Y OLEADAS (El servidor Host siempre calcula esto, esté en pausa o no) ---
         if (!isMultiplayer || isHost) {
             if (estadoOleada === "activa") {
                 if (zombiesRestantes > 0 && zombiesVivos < maxZombiesEnMapa) spawnZombie();
@@ -306,9 +334,9 @@ function animate() {
             if (Math.random() < 0.001) spawnMedkit();
         }
 
-        for (let i = medkits.length - 1; i >= 0; i--) { medkits[i].rotation.y += 0.02; if (camera.position.distanceTo(medkits[i].position) < 1.5 && salud < 100) { salud = Math.min(100, salud + 50); actualizarHUD(); scene.remove(medkits[i]); medkits.splice(i, 1); let audio = audioPickupBase.cloneNode(); audio.volume = baseVolumes.pickup * globalVolMulti; audio.play().catch(e=>{}); } }
+        for (let i = medkits.length - 1; i >= 0; i--) { medkits[i].rotation.y += 0.02; if (!isPaused && camera.position.distanceTo(medkits[i].position) < 1.5 && salud < 100) { salud = Math.min(100, salud + 50); actualizarHUD(); scene.remove(medkits[i]); medkits.splice(i, 1); let audio = audioPickupBase.cloneNode(); audio.volume = baseVolumes.pickup * globalVolMulti; audio.play().catch(e=>{}); } }
 
-        if (isShooting && armasConfig[armaActual].auto && time - lastShootTime >= armasConfig[armaActual].cooldownMs) { procesarDisparo(time); if(isMultiplayer && connections.length>0) { if(isHost) connections.forEach(c=>c.send({type:'shoot'})); else connections[0].send({type:'shoot'}); } }
+        if (!isPaused && isShooting && armasConfig[armaActual].auto && time - lastShootTime >= armasConfig[armaActual].cooldownMs) { procesarDisparo(time); if(isMultiplayer && connections.length>0) { if(isHost) connections.forEach(c=>c.send({type:'shoot'})); else connections[0].send({type:'shoot'}); } }
 
         for(let i = activeBullets.length - 1; i >= 0; i--) {
             let b = activeBullets[i]; b.life -= delta; if (b.life <= 0) { scene.remove(b.mesh); activeBullets.splice(i, 1); continue; } 
@@ -322,17 +350,10 @@ function animate() {
                     let zObj = zombiesArray.find(z => z.mesh === rootGroup); 
                     
                     if(zObj) { 
-                        let part = obj.userData.part || 'body'; 
-                        let mult = (part === 'head') ? 2.0 : (part === 'limb') ? 0.7 : 1.0; 
-                        let dmg = Math.round(b.dmg * mult);
-
-                        if (!isMultiplayer || isHost) {
-                            damageZombie(zObj.id, dmg, part, intersects[0].point); 
-                        } else {
-                            connections[0].send({
-                                type: 'hit_zombie', zId: zObj.id, damage: dmg, part: part,
-                                hitPoint: { x: intersects[0].point.x, y: intersects[0].point.y, z: intersects[0].point.z }
-                            });
+                        let part = obj.userData.part || 'body'; let mult = (part === 'head') ? 2.0 : (part === 'limb') ? 0.7 : 1.0; let dmg = Math.round(b.dmg * mult);
+                        if (!isMultiplayer || isHost) damageZombie(zObj.id, dmg, part, intersects[0].point); 
+                        else {
+                            connections[0].send({ type: 'hit_zombie', zId: zObj.id, damage: dmg, part: part, hitPoint: { x: intersects[0].point.x, y: intersects[0].point.y, z: intersects[0].point.z }});
                             spawnFloatingDamage(dmg, part, intersects[0].point);
                         }
                     } 
@@ -348,26 +369,60 @@ function animate() {
 
         const camFwd = new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion).setY(0).normalize(); const camRight = new THREE.Vector3(1,0,0).applyQuaternion(camera.quaternion).setY(0).normalize(); let blipsHTML = '';
         
-        // --- MOVIMIENTO ZOMBIE ---
+        // --- MOVIMIENTO ZOMBIE (Búsqueda del jugador activo más cercano) ---
         zombiesArray.forEach(zObj => {
             let z = zObj.mesh; zObj.hpGroup.lookAt(camera.position); 
-            const dirToPlayer = new THREE.Vector3().subVectors(camera.position, z.position); dirToPlayer.y = 0; const dist = dirToPlayer.length();
             
-            if (dist > 2 && dist < 20) { let dirToZombie = new THREE.Vector3().subVectors(z.position, camera.position).setY(0).normalize(); let angle = Math.atan2(dirToZombie.dot(camRight), dirToZombie.dot(camFwd)); blipsHTML += `<div class="blip-wrapper" style="transform: rotate(${angle}rad); opacity: ${1 - (dist/20)};"><div class="blip-arc"></div></div>`; }
+            // 1. Encontrar al jugador NO PAUSADO más cercano
+            let closestPos = null;
+            let minDist = Infinity;
+
+            if (!isPaused && !isLobby) {
+                let dist = camera.position.distanceTo(z.position);
+                if (dist < minDist) { minDist = dist; closestPos = camera.position.clone(); }
+            }
+
+            if (isMultiplayer) {
+                for (let id in otherPlayersData) {
+                    if (id === myRoomId) continue;
+                    let p = otherPlayersData[id];
+                    if (!p.isPaused) {
+                        let pPos = new THREE.Vector3(p.x, p.y + 1.6, p.z);
+                        let dist = pPos.distanceTo(z.position);
+                        if (dist < minDist) { minDist = dist; closestPos = pPos; }
+                    }
+                }
+            }
+
+            // Radar Visual (Apunta al zombie más cercano a MI cámara si no estoy pausado)
+            if (!isPaused) {
+                const distToMe = camera.position.distanceTo(z.position);
+                if (distToMe > 2 && distToMe < 20) { let dirToZombie = new THREE.Vector3().subVectors(z.position, camera.position).setY(0).normalize(); let angle = Math.atan2(dirToZombie.dot(camRight), dirToZombie.dot(camFwd)); blipsHTML += `<div class="blip-wrapper" style="transform: rotate(${angle}rad); opacity: ${1 - (distToMe/20)};"><div class="blip-arc"></div></div>`; }
+            }
             
             if (!isMultiplayer || isHost) {
                 // LÓGICA DEL HOST / SINGLEPLAYER
-                z.lookAt(camera.position.x, z.position.y, camera.position.z); 
-                if (dist > 1.2) {
-                    dirToPlayer.normalize(); const startX = z.position.x; z.position.x += dirToPlayer.x * zObj.speed * delta; if (boundingBoxes.some(b => new THREE.Box3().setFromObject(z).intersectsBox(b))) z.position.x = startX; const startZ = z.position.z; z.position.z += dirToPlayer.z * zObj.speed * delta; if (boundingBoxes.some(b => new THREE.Box3().setFromObject(z).intersectsBox(b))) z.position.z = startZ;
-                    const walkCycle = time * 0.01 * (zObj.speed/2.5); zObj.lLeg.rotation.x = Math.sin(walkCycle) * 0.5; zObj.rLeg.rotation.x = Math.sin(walkCycle + Math.PI) * 0.5; zObj.lArm.rotation.x = -0.2; zObj.rArm.rotation.x = -0.2; zObj.lArm.rotation.z = Math.sin(walkCycle) * 0.1; zObj.rArm.rotation.z = -Math.sin(walkCycle) * 0.1; zObj.head.rotation.z = Math.sin(walkCycle * 0.5) * 0.1;
+                if (closestPos) {
+                    z.lookAt(closestPos.x, z.position.y, closestPos.z); 
+                    const dirToPlayer = new THREE.Vector3().subVectors(closestPos, z.position); dirToPlayer.y = 0; const dist = dirToPlayer.length();
+
+                    if (dist > 1.2) {
+                        dirToPlayer.normalize(); const startX = z.position.x; z.position.x += dirToPlayer.x * zObj.speed * delta; if (boundingBoxes.some(b => new THREE.Box3().setFromObject(z).intersectsBox(b))) z.position.x = startX; const startZ = z.position.z; z.position.z += dirToPlayer.z * zObj.speed * delta; if (boundingBoxes.some(b => new THREE.Box3().setFromObject(z).intersectsBox(b))) z.position.z = startZ;
+                        const walkCycle = time * 0.01 * (zObj.speed/2.5); zObj.lLeg.rotation.x = Math.sin(walkCycle) * 0.5; zObj.rLeg.rotation.x = Math.sin(walkCycle + Math.PI) * 0.5; zObj.lArm.rotation.x = -0.2; zObj.rArm.rotation.x = -0.2; zObj.lArm.rotation.z = Math.sin(walkCycle) * 0.1; zObj.rArm.rotation.z = -Math.sin(walkCycle) * 0.1; zObj.head.rotation.z = Math.sin(walkCycle * 0.5) * 0.1;
+                    } else {
+                        zObj.lLeg.rotation.x = 0; zObj.rLeg.rotation.x = 0; zObj.head.rotation.z = 0; zObj.lArm.rotation.x = Math.abs(Math.sin(time*0.02))*0.8; zObj.rArm.rotation.x = Math.abs(Math.sin(time*0.02 + 1))*0.8;
+                        // Daño si el objetivo soy yo (el Host)
+                        if (!isPaused && minDist === camera.position.distanceTo(z.position) && time - lastDamageTime > 1000) {
+                            salud -= 20; actualizarHUD(); lastDamageTime = time; let dOv = document.getElementById('damage-overlay'); if(dOv) { dOv.style.opacity = '0.5'; setTimeout(() => dOv.style.opacity = '0', 200); } if (salud <= 0) handleGameOver();
+                        }
+                    }
                 } else {
-                    zObj.lLeg.rotation.x = 0; zObj.rLeg.rotation.x = 0; zObj.head.rotation.z = 0; zObj.lArm.rotation.x = Math.abs(Math.sin(time*0.02))*0.8; zObj.rArm.rotation.x = Math.abs(Math.sin(time*0.02 + 1))*0.8;
-                    if (time - lastDamageTime > 1000) { salud -= 20; actualizarHUD(); lastDamageTime = time; let dOv = document.getElementById('damage-overlay'); if(dOv) { dOv.style.opacity = '0.5'; setTimeout(() => dOv.style.opacity = '0', 200); } if (salud <= 0) { isGameActive = false; if(!isMobile) controls.unlock(); let gs = document.getElementById('gameover-stats'); if(gs) gs.innerText = `Ronda Alcanzada: ${oleadaActual} | Dinero Obtenido: $${puntos}`; showScreen('screen-gameover'); } }
+                    // Todos están pausados, animacion de idle
+                    zObj.lLeg.rotation.x = 0; zObj.rLeg.rotation.x = 0; zObj.lArm.rotation.x = -0.1; zObj.rArm.rotation.x = -0.1;
                 }
             } else {
-                // LÓGICA DEL CLIENTE (Solo Animaciones)
-                if (dist > 1.2) {
+                // LÓGICA DEL CLIENTE (Solo Animaciones y daño local)
+                if (closestPos && closestPos.distanceTo(z.position) > 1.2) {
                     const walkCycle = time * 0.01 * 1.5; 
                     zObj.lLeg.rotation.x = Math.sin(walkCycle) * 0.5; zObj.rLeg.rotation.x = Math.sin(walkCycle + Math.PI) * 0.5; 
                     zObj.lArm.rotation.x = -0.2; zObj.rArm.rotation.x = -0.2; 
@@ -375,22 +430,42 @@ function animate() {
                     zObj.head.rotation.z = Math.sin(walkCycle * 0.5) * 0.1;
                 } else {
                     zObj.lLeg.rotation.x = 0; zObj.rLeg.rotation.x = 0; zObj.head.rotation.z = 0; zObj.lArm.rotation.x = Math.abs(Math.sin(time*0.02))*0.8; zObj.rArm.rotation.x = Math.abs(Math.sin(time*0.02 + 1))*0.8;
-                    if (camera.position.distanceTo(z.position) <= 1.2 && time - lastDamageTime > 1000) { salud -= 20; actualizarHUD(); lastDamageTime = time; let dOv = document.getElementById('damage-overlay'); if(dOv) { dOv.style.opacity = '0.5'; setTimeout(() => dOv.style.opacity = '0', 200); } if (salud <= 0) { isGameActive = false; if(!isMobile) controls.unlock(); let gs = document.getElementById('gameover-stats'); if(gs) gs.innerText = `Ronda Alcanzada: ${oleadaActual} | Dinero Obtenido: $${puntos}`; showScreen('screen-gameover'); } }
+                    // El cliente se hace daño si el zombie está atacando Y él es el objetivo cercano
+                    if (!isPaused && camera.position.distanceTo(z.position) <= 1.2 && time - lastDamageTime > 1000) {
+                        salud -= 20; actualizarHUD(); lastDamageTime = time; let dOv = document.getElementById('damage-overlay'); if(dOv) { dOv.style.opacity = '0.5'; setTimeout(() => dOv.style.opacity = '0', 200); } if (salud <= 0) handleGameOver();
+                    }
                 }
             }
         });
-        let va = document.getElementById('visual-audio-container'); if(va) va.innerHTML = blipsHTML; 
+        if (!isPaused) { let va = document.getElementById('visual-audio-container'); if(va) va.innerHTML = blipsHTML; }
     }
 
-    if (recargando) { currentTargetPosition.set(0.3, -0.4, -0.2); activeWeaponGroup.rotation.x -= (activeWeaponGroup.rotation.x + 0.8) * 0.1; } else { currentTargetPosition.copy(isAiming ? aimPosition : hipPosition); if (!isAiming && (moveF || moveB || moveL || moveR)) { currentTargetPosition.y += Math.sin(time * (isSprinting?0.015:0.008)) * (isSprinting?0.02:0.01); currentTargetPosition.x += Math.cos(time * (isSprinting?0.0075:0.004)) * (isSprinting?0.01:0.005); } activeWeaponGroup.rotation.x -= (activeWeaponGroup.rotation.x) * 0.1; }
+    // --- MANEJO DE MOVIMIENTO DEL JUGADOR (Ignorar input si está pausado) ---
+    if (recargando) { 
+        currentTargetPosition.set(0.3, -0.4, -0.2); activeWeaponGroup.rotation.x -= (activeWeaponGroup.rotation.x + 0.8) * 0.1; 
+    } else { 
+        if (!isPaused) {
+            currentTargetPosition.copy(isAiming ? aimPosition : hipPosition); 
+            if (!isAiming && (moveF || moveB || moveL || moveR)) { currentTargetPosition.y += Math.sin(time * (isSprinting?0.015:0.008)) * (isSprinting?0.02:0.01); currentTargetPosition.x += Math.cos(time * (isSprinting?0.0075:0.004)) * (isSprinting?0.01:0.005); } 
+        }
+        activeWeaponGroup.rotation.x -= (activeWeaponGroup.rotation.x) * 0.1; 
+    }
     activeWeaponGroup.position.lerp(currentTargetPosition, 0.2); camera.fov += ((isAiming ? aimFOV : normalFOV) - camera.fov) * 0.15; camera.updateProjectionMatrix(); let ch = document.getElementById('crosshair'); if(ch) ch.style.transform = isAiming ? 'translate(-50%, -50%) scale(0.5)' : 'translate(-50%, -50%) scale(1)';
     
-    let speed = isAiming ? 25.0 : isSliding ? 130.0 : isCrouching ? 20.0 : (isSprinting && (moveF||moveL||moveR||moveB)) ? 90.0 : 50.0; 
-    if(isSliding) { slideTimer--; if(slideTimer<=0){isSliding=false; isCrouching=true;} }
+    if (!isPaused) {
+        let speed = isAiming ? 25.0 : isSliding ? 130.0 : isCrouching ? 20.0 : (isSprinting && (moveF||moveL||moveR||moveB)) ? 90.0 : 50.0; 
+        if(isSliding) { slideTimer--; if(slideTimer<=0){isSliding=false; isCrouching=true;} }
+        if(isMobile) { 
+            let forward = new THREE.Vector3(0,0,-1); let right = new THREE.Vector3(1,0,0);
+            forward.applyQuaternion(camera.quaternion); forward.y = 0; forward.normalize(); right.applyQuaternion(camera.quaternion); right.y = 0; right.normalize(); 
+            if(moveF) { velocity.x += forward.x * speed * delta; velocity.z += forward.z * speed * delta; } if(moveB) { velocity.x -= forward.x * speed * delta; velocity.z -= forward.z * speed * delta; } if(moveR) { velocity.x += right.x * speed * delta; velocity.z += right.z * speed * delta; } if(moveL) { velocity.x -= right.x * speed * delta; velocity.z -= right.z * speed * delta; } 
+        } else { 
+            direction.z = Number(moveF) - Number(moveB); direction.x = Number(moveR) - Number(moveL); direction.normalize(); if (moveF || moveB) velocity.z -= direction.z * speed * delta; if (moveL || moveR) velocity.x -= direction.x * speed * delta; 
+        }
+    }
+    
+    // Fricción y gravedad se aplican siempre (incluso en pausa) para que no te quedes flotando o resbalando
     velocity.x -= velocity.x * 10.0 * delta; velocity.z -= velocity.z * 10.0 * delta; 
-    let forward = new THREE.Vector3(0,0,-1); let right = new THREE.Vector3(1,0,0);
-    if(isMobile) { forward.applyQuaternion(camera.quaternion); forward.y = 0; forward.normalize(); right.applyQuaternion(camera.quaternion); right.y = 0; right.normalize(); if(moveF) { velocity.x += forward.x * speed * delta; velocity.z += forward.z * speed * delta; } if(moveB) { velocity.x -= forward.x * speed * delta; velocity.z -= forward.z * speed * delta; } if(moveR) { velocity.x += right.x * speed * delta; velocity.z += right.z * speed * delta; } if(moveL) { velocity.x -= right.x * speed * delta; velocity.z -= right.z * speed * delta; } } 
-    else { direction.z = Number(moveF) - Number(moveB); direction.x = Number(moveR) - Number(moveL); direction.normalize(); if (moveF || moveB) velocity.z -= direction.z * speed * delta; if (moveL || moveR) velocity.x -= direction.x * speed * delta; }
 
     const playerBox = new THREE.Box3(); const oldX = camera.position.x; if(isMobile) camera.position.x += velocity.x * delta; else controls.moveRight(-velocity.x * delta); playerBox.setFromCenterAndSize(camera.position, new THREE.Vector3(1, 2, 1)); if (boundingBoxes.some(b => playerBox.intersectsBox(b))) camera.position.x = oldX;
     const oldZ = camera.position.z; if(isMobile) camera.position.z += velocity.z * delta; else controls.moveForward(-velocity.z * delta); playerBox.setFromCenterAndSize(camera.position, new THREE.Vector3(1, 2, 1)); if (boundingBoxes.some(b => playerBox.intersectsBox(b))) camera.position.z = oldZ;
