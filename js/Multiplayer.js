@@ -20,7 +20,6 @@ function setupMultiplayerConnection(conn) {
     conn.on('data', (data) => {
         if (isHost) {
             if (data.type === 'player_pos') {
-                // Ahora el Host guarda también si el jugador está en pausa
                 otherPlayersData[conn.peer] = { x: data.x, y: data.y, z: data.z, rot: data.rot, isPaused: data.isPaused };
             } else if (data.type === 'shoot') {
                 playShootSound();
@@ -70,13 +69,14 @@ function playShootSound() {
 }
 
 function iniciarPartidaMultijugador() {
+    // FIX RATÓN: Pedir la captura antes de ocultar cualquier menú
+    if(!isMobile && typeof controls !== 'undefined') {
+        controls.lock(); 
+    }
+    
     let sm = document.getElementById('screen-multiplayer'); if(sm) sm.style.display = 'none';
     let ul = document.getElementById('ui-layer'); if(ul) ul.style.display = 'none';
     resumeAudio(); isGameActive = true; isPaused = false; isLobby = true; resetGame();
     
     camera.position.set((Math.random()-0.5)*4, 1.6, (Math.random()-0.5)*4); 
-    
-    if(!isMobile && typeof controls !== 'undefined') {
-        setTimeout(()=> { try { controls.lock(); } catch(e){} }, 100); 
-    }
 }

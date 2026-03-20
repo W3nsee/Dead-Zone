@@ -1,6 +1,6 @@
 // === LOGICA ANTI-CRASHEOS Y EVENTOS ===
 let prevScreen = 'screen-main'; 
-let isPaused = false; // Nueva variable global para aislar la pausa del jugador
+let isPaused = false; 
 
 function showScreen(idToShow) {
     const screens = ['screen-main', 'screen-pause', 'screen-multiplayer', 'screen-options', 'screen-gameover'];
@@ -44,9 +44,10 @@ function actualizarCartelSala(codigo, esHost) {
 
 addEvt('card-classic', 'click', () => { 
     try {
+        if(!isMobile) controls.lock(); // FIX RATÓN: Pedir captura primero
         resumeAudio(); isGameActive = true; isPaused = false; isMultiplayer = false; isLobby = false; 
         let ui = document.getElementById('ui-layer'); if(ui) ui.style.display = 'none'; 
-        resetGame(); if(!isMobile) controls.lock(); 
+        resetGame(); 
     } catch(e) { console.error("Error iniciando partida:", e); }
 });
 
@@ -64,6 +65,12 @@ addEvt('card-multiplayer', 'click', () => {
                 connections.push(conn); setupMultiplayerConnection(conn); 
                 otherPlayersMeshes[conn.peer] = createOtherPlayerMesh(0x2980b9); 
                 let audio = audioPickupBase.cloneNode(); audio.volume = 1.0; audio.play().catch(()=>{}); 
+                
+                // === NUEVO: LÓGICA DE UNIRSE A MITAD DE PARTIDA ===
+                if (!isLobby && isHost) {
+                    // Si el host ya está jugando, le dice al nuevo que inicie directamente
+                    conn.send({ type: 'start_game' });
+                }
             });
         });
     } else {
@@ -84,9 +91,9 @@ addEvt('btn-join-room', 'click', () => {
 });
 
 addEvt('btn-resume', 'click', () => { 
+    if(!isMobile) controls.lock(); // FIX RATÓN: Capturar antes de esconder UI
     let ui = document.getElementById('ui-layer'); if(ui) ui.style.display = 'none'; 
     resumeAudio(); isPaused = false; prevTime = performance.now(); 
-    if(!isMobile) controls.lock(); 
 });
 
 addEvt('btn-options', 'click', () => { prevScreen = 'screen-main'; showScreen('screen-options'); }); 
@@ -202,23 +209,12 @@ function procesarCompra(t) {
     }
 }
 
-/// === CONTROLES PC ===
+// === CONTROLES PC ===
 let moveF = false, moveB = false, moveL = false, moveR = false; const controls = new THREE.PointerLockControls(camera, document.body); if(!isMobile) cameraGroup.add(controls.getObject());
 
-// CORRECCIÓN: Permitir que el menú de pausa se abra incluso estando en el Lobby
 controls.addEventListener('unlock', () => { 
     isAiming = false; isSprinting = false; isCrouching = false; isShooting = false; 
-    
-    // Quitamos la restricción de "!isLobby" para que funcione siempre que estés vivo en partida
     if (isGameActive && salud > 0) { 
-        isPaused = true; 
-        showScreen('screen-pause'); 
-    } 
-});
-// CORRECCIÓN: Al desbloquear el ratón, solo se pausa al jugador local, pero el juego (servidor) sigue corriendo
-controls.addEventListener('unlock', () => { 
-    isAiming = false; isSprinting = false; isCrouching = false; isShooting = false; 
-    if (isGameActive && salud > 0 && !isLobby) { 
         isPaused = true; 
         showScreen('screen-pause'); 
     } 
@@ -277,7 +273,7 @@ function handleGameOver() {
 // === BUCLE PRINCIPAL (ANIMATE) ===
 function animate() {
     requestAnimationFrame(animate); 
-    if (!isGameActive) return; // Si estamos en el menú de inicio no hacemos nada
+    if (!isGameActive) return; 
     
     const time = performance.now(); const delta = Math.min((time - prevTime) / 1000, 0.1); 
     
@@ -331,7 +327,7 @@ function animate() {
             }
         } else { holdStartProgress = Math.max(0, holdStartProgress - delta * 2); }
     } else {
-        // --- IA Y OLEADAS (El servidor Host siempre calcula esto, esté en pausa o no) ---
+        // --- IA Y OLEADAS ---
         if (!isMultiplayer || isHost) {
             if (estadoOleada === "activa") {
                 if (zombiesRestantes > 0 && zombiesVivos < maxZombiesEnMapa) spawnZombie();
@@ -379,11 +375,10 @@ function animate() {
 
         const camFwd = new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion).setY(0).normalize(); const camRight = new THREE.Vector3(1,0,0).applyQuaternion(camera.quaternion).setY(0).normalize(); let blipsHTML = '';
         
-        // --- MOVIMIENTO ZOMBIE (Búsqueda del jugador activo más cercano) ---
+        // --- MOVIMIENTO ZOMBIE ---
         zombiesArray.forEach(zObj => {
             let z = zObj.mesh; zObj.hpGroup.lookAt(camera.position); 
             
-            // 1. Encontrar al jugador NO PAUSADO más cercano
             let closestPos = null;
             let minDist = Infinity;
 
@@ -404,14 +399,12 @@ function animate() {
                 }
             }
 
-            // Radar Visual (Apunta al zombie más cercano a MI cámara si no estoy pausado)
             if (!isPaused) {
                 const distToMe = camera.position.distanceTo(z.position);
                 if (distToMe > 2 && distToMe < 20) { let dirToZombie = new THREE.Vector3().subVectors(z.position, camera.position).setY(0).normalize(); let angle = Math.atan2(dirToZombie.dot(camRight), dirToZombie.dot(camFwd)); blipsHTML += `<div class="blip-wrapper" style="transform: rotate(${angle}rad); opacity: ${1 - (distToMe/20)};"><div class="blip-arc"></div></div>`; }
             }
             
             if (!isMultiplayer || isHost) {
-                // LÓGICA DEL HOST / SINGLEPLAYER
                 if (closestPos) {
                     z.lookAt(closestPos.x, z.position.y, closestPos.z); 
                     const dirToPlayer = new THREE.Vector3().subVectors(closestPos, z.position); dirToPlayer.y = 0; const dist = dirToPlayer.length();
@@ -421,17 +414,14 @@ function animate() {
                         const walkCycle = time * 0.01 * (zObj.speed/2.5); zObj.lLeg.rotation.x = Math.sin(walkCycle) * 0.5; zObj.rLeg.rotation.x = Math.sin(walkCycle + Math.PI) * 0.5; zObj.lArm.rotation.x = -0.2; zObj.rArm.rotation.x = -0.2; zObj.lArm.rotation.z = Math.sin(walkCycle) * 0.1; zObj.rArm.rotation.z = -Math.sin(walkCycle) * 0.1; zObj.head.rotation.z = Math.sin(walkCycle * 0.5) * 0.1;
                     } else {
                         zObj.lLeg.rotation.x = 0; zObj.rLeg.rotation.x = 0; zObj.head.rotation.z = 0; zObj.lArm.rotation.x = Math.abs(Math.sin(time*0.02))*0.8; zObj.rArm.rotation.x = Math.abs(Math.sin(time*0.02 + 1))*0.8;
-                        // Daño si el objetivo soy yo (el Host)
                         if (!isPaused && minDist === camera.position.distanceTo(z.position) && time - lastDamageTime > 1000) {
                             salud -= 20; actualizarHUD(); lastDamageTime = time; let dOv = document.getElementById('damage-overlay'); if(dOv) { dOv.style.opacity = '0.5'; setTimeout(() => dOv.style.opacity = '0', 200); } if (salud <= 0) handleGameOver();
                         }
                     }
                 } else {
-                    // Todos están pausados, animacion de idle
                     zObj.lLeg.rotation.x = 0; zObj.rLeg.rotation.x = 0; zObj.lArm.rotation.x = -0.1; zObj.rArm.rotation.x = -0.1;
                 }
             } else {
-                // LÓGICA DEL CLIENTE (Solo Animaciones y daño local)
                 if (closestPos && closestPos.distanceTo(z.position) > 1.2) {
                     const walkCycle = time * 0.01 * 1.5; 
                     zObj.lLeg.rotation.x = Math.sin(walkCycle) * 0.5; zObj.rLeg.rotation.x = Math.sin(walkCycle + Math.PI) * 0.5; 
@@ -440,7 +430,6 @@ function animate() {
                     zObj.head.rotation.z = Math.sin(walkCycle * 0.5) * 0.1;
                 } else {
                     zObj.lLeg.rotation.x = 0; zObj.rLeg.rotation.x = 0; zObj.head.rotation.z = 0; zObj.lArm.rotation.x = Math.abs(Math.sin(time*0.02))*0.8; zObj.rArm.rotation.x = Math.abs(Math.sin(time*0.02 + 1))*0.8;
-                    // El cliente se hace daño si el zombie está atacando Y él es el objetivo cercano
                     if (!isPaused && camera.position.distanceTo(z.position) <= 1.2 && time - lastDamageTime > 1000) {
                         salud -= 20; actualizarHUD(); lastDamageTime = time; let dOv = document.getElementById('damage-overlay'); if(dOv) { dOv.style.opacity = '0.5'; setTimeout(() => dOv.style.opacity = '0', 200); } if (salud <= 0) handleGameOver();
                     }
@@ -450,7 +439,6 @@ function animate() {
         if (!isPaused) { let va = document.getElementById('visual-audio-container'); if(va) va.innerHTML = blipsHTML; }
     }
 
-    // --- MANEJO DE MOVIMIENTO DEL JUGADOR (Ignorar input si está pausado) ---
     if (recargando) { 
         currentTargetPosition.set(0.3, -0.4, -0.2); activeWeaponGroup.rotation.x -= (activeWeaponGroup.rotation.x + 0.8) * 0.1; 
     } else { 
@@ -474,7 +462,6 @@ function animate() {
         }
     }
     
-    // Fricción y gravedad se aplican siempre (incluso en pausa) para que no te quedes flotando o resbalando
     velocity.x -= velocity.x * 10.0 * delta; velocity.z -= velocity.z * 10.0 * delta; 
 
     const playerBox = new THREE.Box3(); const oldX = camera.position.x; if(isMobile) camera.position.x += velocity.x * delta; else controls.moveRight(-velocity.x * delta); playerBox.setFromCenterAndSize(camera.position, new THREE.Vector3(1, 2, 1)); if (boundingBoxes.some(b => playerBox.intersectsBox(b))) camera.position.x = oldX;
