@@ -202,9 +202,19 @@ function procesarCompra(t) {
     }
 }
 
-// === CONTROLES PC ===
+/// === CONTROLES PC ===
 let moveF = false, moveB = false, moveL = false, moveR = false; const controls = new THREE.PointerLockControls(camera, document.body); if(!isMobile) cameraGroup.add(controls.getObject());
 
+// CORRECCIÓN: Permitir que el menú de pausa se abra incluso estando en el Lobby
+controls.addEventListener('unlock', () => { 
+    isAiming = false; isSprinting = false; isCrouching = false; isShooting = false; 
+    
+    // Quitamos la restricción de "!isLobby" para que funcione siempre que estés vivo en partida
+    if (isGameActive && salud > 0) { 
+        isPaused = true; 
+        showScreen('screen-pause'); 
+    } 
+});
 // CORRECCIÓN: Al desbloquear el ratón, solo se pausa al jugador local, pero el juego (servidor) sigue corriendo
 controls.addEventListener('unlock', () => { 
     isAiming = false; isSprinting = false; isCrouching = false; isShooting = false; 
