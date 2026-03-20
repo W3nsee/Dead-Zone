@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-    <div id="points-hud">💵 DINERO: $<span id="points-val">0</span></div>
+    <div id="points-hud">💵 DINERO: $<span id="points-val">500</span></div>
     <div id="money-popup">+$100</div>
     <div id="wave-hud">Ronda <span id="wave-val">1</span><br><span id="wave-sub">Zombies: 5</span></div>
     
@@ -47,6 +47,7 @@
     
     <div id="ui-layer">
         <div class="grid-bg"></div>
+        
         <div id="screen-main" class="screen">
             <h1>DEAD ZONE</h1>
             <div class="cards-container">
@@ -58,6 +59,7 @@
                 </div>
             </div>
             <p style="color:#aaa; font-weight: bold; margin-top: 10px;">¡Compatible con PC y Teléfono Celular!</p>
+            <button class="menu-btn" id="btn-options" style="margin-top: 20px;">Opciones</button>
         </div>
 
         <div id="screen-multiplayer" class="screen" style="display: none;">
@@ -78,7 +80,22 @@
         <div id="screen-pause" class="screen" style="display: none;">
             <h2>PAUSA</h2>
             <button class="menu-btn" id="btn-resume">Reanudar Partida</button>
+            <button class="menu-btn" id="btn-options-pause">Opciones</button>
             <button class="menu-btn danger" id="btn-quit">Salir al Menú</button>
+        </div>
+
+        <div id="screen-options" class="screen" style="display: none;">
+            <h2>OPCIONES</h2>
+            <div class="options-panel">
+                <div class="setting-group">
+                    <h3>Audio General</h3>
+                    <div class="slider-container">
+                        <span>Volumen: <span id="vol-value">100%</span></span>
+                        <input type="range" id="volume-slider" min="0" max="1" step="0.05" value="1">
+                    </div>
+                </div>
+            </div>
+            <button class="menu-btn" id="btn-back">Volver</button>
         </div>
 
         <div id="screen-gameover" class="screen" style="display: none;">
@@ -94,7 +111,9 @@
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     
     <script src="js/GameConfig.js"></script>
-    <script src="js/Entities.js"></script>  <script src="js/World.js"></script>     <script src="js/Multiplayer.js"></script>
+    <script src="js/Entities.js"></script>  
+    <script src="js/World.js"></script>     
+    <script src="js/Multiplayer.js"></script>
     <script src="js/Main.js"></script>
 </body>
 </html>
