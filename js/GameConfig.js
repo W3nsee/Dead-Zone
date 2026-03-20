@@ -43,3 +43,20 @@ const audioListener = new THREE.AudioListener(); camera.add(audioListener); cons
 audioLoader.load('zombie.mp3', (buffer) => { zombieAudioBuffer = buffer; zombiesArray.forEach(z => { if (z.audio && !z.audio.isPlaying) { z.audio.setBuffer(zombieAudioBuffer); z.audio.play(); } }); }, undefined, (err) => { console.log("Audio zombie.mp3 no encontrado."); });
 function resumeAudio() { if (audioListener.context.state === 'suspended') { audioListener.context.resume(); } }
 let raycaster = new THREE.Raycaster(); const muzzleFlashLight = new THREE.PointLight(0xffaa00, 0, 10); scene.add(muzzleFlashLight);
+
+// === VERSIÓN DEL JUEGO ===
+const GAME_VERSION = "v1.2.0-beta"; 
+
+function mostrarVersionEnPantalla() {
+    const vDiv = document.createElement('div');
+    vDiv.style.position = 'absolute';
+    vDiv.style.bottom = '10px';
+    vDiv.style.right = '10px';
+    vDiv.style.color = 'rgba(255,255,255,0.3)'; // Color tenue para que no estorbe
+    vDiv.style.fontSize = '12px';
+    vDiv.style.fontFamily = 'monospace';
+    vDiv.style.pointerEvents = 'none';
+    vDiv.innerText = GAME_VERSION;
+    document.body.appendChild(vDiv);
+}
+mostrarVersionEnPantalla();
