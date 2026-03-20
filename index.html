@@ -64,17 +64,30 @@
 
         <div id="screen-multiplayer" class="screen" style="display: none;">
             <h2>MULTIJUGADOR</h2>
-            <div style="background: rgba(0,0,0,0.7); padding: 20px; border-radius: 10px; text-align: center;">
-                <h3 style="color: #2ecc71;">Tu Código de Sala:</h3>
-                <h1 id="my-room-code" style="color: white; letter-spacing: 5px; user-select: text;">CARGANDO...</h1>
-                <p style="color: #aaa;">Pásale este código a tu amigo para que se una.</p>
-                <button class="menu-btn" id="btn-start-host" style="border-color: #2ecc71; display: none;">Iniciar Partida (Host)</button>
-                <hr style="border-color: #333; margin: 20px 0;">
-                <h3 style="color: #3498db;">Unirse a una Sala:</h3>
-                <input type="text" id="join-room-code" placeholder="CÓDIGO" style="padding: 10px; width: 80%; font-size: 18px; text-align: center; font-weight: bold; text-transform: uppercase; background: #222; color: white; border: 2px solid #555; border-radius: 5px;">
-                <button class="menu-btn" id="btn-join-room" style="border-color: #3498db; margin-top:10px;">Conectar y Jugar</button>
+            
+            <div class="multiplayer-container">
+                <div class="multiplayer-panel">
+                    <h3 style="color: #2ecc71; margin-bottom: 5px;">Crear Sala (Host)</h3>
+                    <p style="color: #aaa; margin-top: 0; font-size: 0.9rem;">Pásale este código a tu amigo</p>
+                    
+                    <h1 id="my-room-code" style="color: white; letter-spacing: 5px; user-select: text; font-size: 2.5rem; margin: 20px 0;">CARGANDO...</h1>
+                    
+                    <button class="menu-btn" id="btn-start-host" style="border-color: #2ecc71; display: none; margin-top: auto;">Iniciar Partida</button>
+                </div>
+                
+                <div class="vertical-divider"></div>
+
+                <div class="multiplayer-panel">
+                    <h3 style="color: #3498db; margin-bottom: 5px;">Unirse a una Sala</h3>
+                    <p style="color: #aaa; margin-top: 0; font-size: 0.9rem;">Introduce el código de tu amigo</p>
+                    
+                    <input type="text" id="join-room-code" placeholder="CÓDIGO" style="padding: 12px; width: 70%; font-size: 20px; text-align: center; font-weight: bold; text-transform: uppercase; background: #222; color: white; border: 2px solid #555; border-radius: 8px; margin: 25px 0;">
+                    
+                    <button class="menu-btn" id="btn-join-room" style="border-color: #3498db; margin-top: auto;">Conectar y Jugar</button>
+                </div>
             </div>
-            <button class="menu-btn danger" id="btn-back-main" style="margin-top: 20px;">Volver</button>
+
+            <button class="menu-btn danger" id="btn-back-main" style="margin-top: 30px; width: 200px;">Volver</button>
         </div>
 
         <div id="screen-pause" class="screen" style="display: none;">
