@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MODO ZOMBIES - Multijugador & Modular</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div id="points-hud">💵 DINERO: $<span id="points-val">0</span></div>
+    <div id="money-popup">+$100</div>
+    <div id="wave-hud">Ronda <span id="wave-val">1</span><br><span id="wave-sub">Zombies: 5</span></div>
+    
+    <div id="health-hud">
+        <div class="health-icon">✚</div>
+        <div class="health-bar-container"><div id="health-bar-fill"></div></div>
+        <div id="health-text">100</div>
+    </div>
+
+    <div id="inventory-hud">
+        <div class="inv-slot active" id="slot-1"><span class="key">[1]</span> Pistola</div>
+        <div class="inv-slot" id="slot-2"><span class="key">[2]</span> Escopeta</div>
+        <div class="inv-slot" id="slot-3"><span class="key">[3]</span> Rifle M4</div>
+    </div>
+
+    <div id="weapon-info">Pistola</div>
+    <div id="ammo-hud">15 / 90</div>
+    <div id="grenade-hud">💣 [G] : <span id="grenade-val">2</span></div>
+    
+    <div id="floating-damage-container"></div>
+    <div id="visual-audio-container"></div>
+    <div id="interact-prompt">Presiona [E] para comprar</div>
+    <div id="reload-text">RECARGANDO...</div>
+    <div id="crosshair"></div>
+    <div id="damage-overlay"></div>
+    <div id="flash-overlay"></div>
+    
+    <div id="mobile-controls">
+        <div id="joystick-zone"><div id="joystick-knob"></div></div>
+        <div id="look-zone"></div>
+        <div id="btn-shoot" class="mob-btn">🔥</div>
+        <div id="btn-reload" class="mob-btn">↻</div>
+        <div id="btn-jump" class="mob-btn">▲</div>
+        <div id="btn-swap" class="mob-btn">🔫</div>
+        <div id="btn-interact" class="mob-btn">COMPRAR</div>
+    </div>
+    
+    <div id="ui-layer">
+        <div class="grid-bg"></div>
+        <div id="screen-main" class="screen">
+            <h1>DEAD ZONE</h1>
+            <div class="cards-container">
+                <div class="card" id="card-classic">
+                    <div class="card-icon">🏭</div><div class="card-title">Almacén (Solo)</div><div class="card-desc">Juega en solitario.</div>
+                </div>
+                <div class="card" id="card-multiplayer">
+                    <div class="card-icon">🤝</div><div class="card-title">Multijugador</div><div class="card-desc">Crea una sala y juega con amigos.</div>
+                </div>
+            </div>
+            <p style="color:#aaa; font-weight: bold; margin-top: 10px;">¡Compatible con PC y Teléfono Celular!</p>
+        </div>
+
+        <div id="screen-multiplayer" class="screen" style="display: none;">
+            <h2>MULTIJUGADOR</h2>
+            <div style="background: rgba(0,0,0,0.7); padding: 20px; border-radius: 10px; text-align: center;">
+                <h3 style="color: #2ecc71;">Tu Código de Sala:</h3>
+                <h1 id="my-room-code" style="color: white; letter-spacing: 5px; user-select: text;">CARGANDO...</h1>
+                <p style="color: #aaa;">Pásale este código a tu amigo para que se una.</p>
+                <button class="menu-btn" id="btn-start-host" style="border-color: #2ecc71; display: none;">Iniciar Partida (Host)</button>
+                <hr style="border-color: #333; margin: 20px 0;">
+                <h3 style="color: #3498db;">Unirse a una Sala:</h3>
+                <input type="text" id="join-room-code" placeholder="CÓDIGO" style="padding: 10px; width: 80%; font-size: 18px; text-align: center; font-weight: bold; text-transform: uppercase; background: #222; color: white; border: 2px solid #555; border-radius: 5px;">
+                <button class="menu-btn" id="btn-join-room" style="border-color: #3498db; margin-top:10px;">Conectar y Jugar</button>
+            </div>
+            <button class="menu-btn danger" id="btn-back-main" style="margin-top: 20px;">Volver</button>
+        </div>
+
+        <div id="screen-pause" class="screen" style="display: none;">
+            <h2>PAUSA</h2>
+            <button class="menu-btn" id="btn-resume">Reanudar Partida</button>
+            <button class="menu-btn danger" id="btn-quit">Salir al Menú</button>
+        </div>
+
+        <div id="screen-gameover" class="screen" style="display: none;">
+            <h1 style="color: #ff3333; text-shadow: 0 0 30px #ff0000;">¡HAS MUERTO!</h1>
+            <h2 id="gameover-stats" style="color: white; font-size: 1.8rem; margin-bottom: 40px;">Ronda: 1 | Dinero: $0</h2>
+            <button class="menu-btn" id="btn-restart" style="border-color: #2ecc71;">Volver a Jugar</button>
+            <button class="menu-btn danger" id="btn-tomenu-death">Regresar al Menú</button>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/PointerLockControls.js"></script>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    
+    <script src="js/GameConfig.js"></script>
+    <script src="js/Entities.js"></script>  <script src="js/World.js"></script>     <script src="js/Multiplayer.js"></script>
+    <script src="js/Main.js"></script>
+</body>
+</html>
