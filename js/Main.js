@@ -44,10 +44,13 @@ function actualizarCartelSala(codigo, esHost) {
 
 addEvt('card-classic', 'click', () => { 
     try {
-        if(!isMobile) controls.lock(); // FIX RATÓN: Pedir captura primero
         resumeAudio(); isGameActive = true; isPaused = false; isMultiplayer = false; isLobby = false; 
-        let ui = document.getElementById('ui-layer'); if(ui) ui.style.display = 'none'; 
         resetGame(); 
+        if(!isMobile) {
+            controls.lock(); 
+        } else {
+            let ui = document.getElementById('ui-layer'); if(ui) ui.style.display = 'none'; 
+        }
     } catch(e) { console.error("Error iniciando partida:", e); }
 });
 
@@ -66,9 +69,7 @@ addEvt('card-multiplayer', 'click', () => {
                 otherPlayersMeshes[conn.peer] = createOtherPlayerMesh(0x2980b9); 
                 let audio = audioPickupBase.cloneNode(); audio.volume = 1.0; audio.play().catch(()=>{}); 
                 
-                // === NUEVO: LÓGICA DE UNIRSE A MITAD DE PARTIDA ===
                 if (!isLobby && isHost) {
-                    // Si el host ya está jugando, le dice al nuevo que inicie directamente
                     conn.send({ type: 'start_game' });
                 }
             });
@@ -91,9 +92,13 @@ addEvt('btn-join-room', 'click', () => {
 });
 
 addEvt('btn-resume', 'click', () => { 
-    if(!isMobile) controls.lock(); // FIX RATÓN: Capturar antes de esconder UI
-    let ui = document.getElementById('ui-layer'); if(ui) ui.style.display = 'none'; 
-    resumeAudio(); isPaused = false; prevTime = performance.now(); 
+    if(!isMobile) {
+        // En PC solo mandamos la petición. La UI se esconderá en el evento 'lock'.
+        controls.lock(); 
+    } else {
+        let ui = document.getElementById('ui-layer'); if(ui) ui.style.display = 'none'; 
+        resumeAudio(); isPaused = false; prevTime = performance.now(); 
+    }
 });
 
 addEvt('btn-options', 'click', () => { prevScreen = 'screen-main'; showScreen('screen-options'); }); 
@@ -212,6 +217,12 @@ function procesarCompra(t) {
 // === CONTROLES PC ===
 let moveF = false, moveB = false, moveL = false, moveR = false; const controls = new THREE.PointerLockControls(camera, document.body); if(!isMobile) cameraGroup.add(controls.getObject());
 
+// SOLUCIÓN AL BUG DEL RATÓN: El menú SOLO desaparece cuando el navegador CONFIRMA el bloqueo
+controls.addEventListener('lock', () => { 
+    let ui = document.getElementById('ui-layer'); if(ui) ui.style.display = 'none'; 
+    resumeAudio(); isPaused = false; prevTime = performance.now(); 
+});
+
 controls.addEventListener('unlock', () => { 
     isAiming = false; isSprinting = false; isCrouching = false; isShooting = false; 
     if (isGameActive && salud > 0) { 
@@ -237,7 +248,29 @@ document.addEventListener('keyup', (e) => {
     if (e.code === keyMap.interact) holdingStart = false;
 });
 
-document.addEventListener('mousedown', (e) => { if ((controls.isLocked || isMobile) && !recargando && !isLobby && !isPaused) { if (e.button === 0) { isShooting = true; let t = performance.now(); if (!armasConfig[armaActual].auto && t - lastShootTime >= armasConfig[armaActual].cooldownMs) { procesarDisparo(t); if(isMultiplayer && connections.length>0) { if(isHost) connections.forEach(c=>c.send({type:'shoot'})); else connections[0].send({type:'shoot'}); } } } else if (e.button === 2) { isAiming = true; isSprinting = false; } } });
+document.addEventListener('mousedown', (e) => { 
+    // FALLBACK DE SEGURIDAD: Si por alguna razón ves el ratón mientras juegas, hacer clic lo captura al instante
+    if (!isMobile && isGameActive && !isPaused && !controls.isLocked) {
+        controls.lock();
+        return; 
+    }
+
+    if ((controls.isLocked || isMobile) && !recargando && !isLobby && !isPaused) { 
+        if (e.button === 0) { 
+            isShooting = true; let t = performance.now(); 
+            if (!armasConfig[armaActual].auto && t - lastShootTime >= armasConfig[armaActual].cooldownMs) { 
+                procesarDisparo(t); 
+                if(isMultiplayer && connections.length>0) { 
+                    if(isHost) connections.forEach(c=>c.send({type:'shoot'})); 
+                    else connections[0].send({type:'shoot'}); 
+                } 
+            } 
+        } else if (e.button === 2) { 
+            isAiming = true; isSprinting = false; 
+        } 
+    } 
+});
+
 document.addEventListener('mouseup', (e) => { if (e.button === 0) isShooting = false; if (e.button === 2) isAiming = false; });
 
 // === CONTROLES MÓVILES ===
