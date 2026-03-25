@@ -62,11 +62,9 @@ function equipWeapon(wpName) {
     if(typeof actualizarHUD === 'function') actualizarHUD();
 }
 
-// === ZOMBIES (Cuerpo Entero) ===
-function generateUUID() {
-    return Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
-}
+function generateUUID() { return Math.random().toString(36).substring(2, 15) + Date.now().toString(36); }
 
+// === ZOMBIES (Cuerpo Entero) ===
 function createZombieMesh() {
     const group = new THREE.Group();
     const skinMat = new THREE.MeshPhongMaterial({ color: 0x4d7a3d }); const shirtMat = new THREE.MeshPhongMaterial({ color: 0x6e6351 }); const pantsMat = new THREE.MeshPhongMaterial({ color: 0x2b384f }); 
@@ -107,26 +105,39 @@ function createZombieMesh() {
 
 function spawnZombie() {
     let nx, nz; let validPosition = false; let attempts = 0; let spawnBox = new THREE.Box3();
+    
     while(!validPosition && attempts < 20) {
-        const angle = Math.random() * Math.PI * 2; const distance = 25 + Math.random() * 10; 
-        nx = Math.max(-48, Math.min(48, camera.position.x + Math.cos(angle)*distance)); nz = Math.max(-48, Math.min(48, camera.position.z + Math.sin(angle)*distance));
+        const angle = Math.random() * Math.PI * 2; 
+        const distance = 15 + Math.random() * 10; 
+        
+        let targetPos = new THREE.Vector3(
+            camera.position.x + Math.cos(angle) * distance, 1,
+            camera.position.z + Math.sin(angle) * distance
+        );
+
+        let dir = new THREE.Vector3().subVectors(targetPos, camera.position).normalize();
+        raycaster.set(camera.position, dir);
+        const intersects = raycaster.intersectObjects(obstacles, true);
+        
+        if (intersects.length > 0 && intersects[0].distance < distance) {
+            if (intersects[0].distance < 8) { attempts++; continue; }
+            nx = camera.position.x + dir.x * (intersects[0].distance - 1.5);
+            nz = camera.position.z + dir.z * (intersects[0].distance - 1.5);
+        } else {
+            nx = targetPos.x;
+            nz = targetPos.z;
+        }
+
         spawnBox.setFromCenterAndSize(new THREE.Vector3(nx, 1, nz), new THREE.Vector3(1.5, 2, 1.5));
-        validPosition = !boundingBoxes.some(b => b.intersectsBox(spawnBox)); attempts++;
+        validPosition = !boundingBoxes.some(b => b.intersectsBox(spawnBox)); 
+        attempts++;
     }
     
-    let zObj = createZombieMesh(); 
-    zObj.id = generateUUID(); // ID UNICO PARA MULTIJUGADOR
-    zObj.maxHp = 100 + (oleadaActual * 20); 
-    zObj.hp = zObj.maxHp; 
-    zObj.speed = 3.5 + (oleadaActual * 0.3); 
-    zObj.mesh.position.set(nx, 0, nz);
-    
+    let zObj = createZombieMesh(); zObj.id = generateUUID(); zObj.maxHp = 100 + (oleadaActual * 20); zObj.hp = zObj.maxHp; zObj.speed = 3.5 + (oleadaActual * 0.3); zObj.mesh.position.set(nx, 0, nz);
     let zSound = new THREE.PositionalAudio(audioListener); zSound.setRefDistance(5); zSound.setMaxDistance(50); zSound.setLoop(true); zSound.setVolume(baseVolumes.zombie * globalVolMulti * 1.5); 
     if(zombieAudioBuffer) { zSound.setBuffer(zombieAudioBuffer); zSound.play(); }
     zObj.mesh.add(zSound); zObj.audio = zSound;
-    
-    scene.add(zObj.mesh); zombiesArray.push(zObj); zombiesVivos++; zombiesRestantes--; 
-    if(typeof actualizarHUD === 'function') actualizarHUD();
+    scene.add(zObj.mesh); zombiesArray.push(zObj); zombiesVivos++; zombiesRestantes--; if(typeof actualizarHUD === 'function') actualizarHUD();
 }
 
 function spawnFloatingDamage(dmg, type, pos3D) {
@@ -139,7 +150,6 @@ function spawnFloatingDamage(dmg, type, pos3D) {
     setTimeout(() => { div.remove(); }, 800);
 }
 
-// AHORA USA EL ID DEL ZOMBIE PARA DAÑAR AL CORRECTO EN MULTIJUGADOR
 function damageZombie(zId, damage, partType, hitPoint) {
     let zIndex = zombiesArray.findIndex(z => z.id === zId);
     if (zIndex === -1) return;

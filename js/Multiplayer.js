@@ -27,6 +27,9 @@ function setupMultiplayerConnection(conn) {
             } else if (data.type === 'hit_zombie') {
                 let hitPos = new THREE.Vector3(data.hitPoint.x, data.hitPoint.y, data.hitPoint.z);
                 damageZombie(data.zId, data.damage, data.part, hitPos);
+            } else if (data.type === 'open_door') {
+                if (typeof openDoor === 'function') openDoor(data.doorId);
+                connections.forEach(c => { if(c.peer !== conn.peer) c.send({type:'open_door', doorId: data.doorId}); });
             }
         } else {
             if (data.type === 'start_game') {
@@ -44,6 +47,8 @@ function setupMultiplayerConnection(conn) {
                 
                 if (data.zombies) syncClientZombies(data.zombies);
                 
+                if (data.openedDoors) { data.openedDoors.forEach(dId => { if (typeof openDoor === 'function') openDoor(dId); }); }
+                
                 if (data.waveInfo) {
                     oleadaActual = data.waveInfo.oleada;
                     zombiesRestantes = data.waveInfo.restantes;
@@ -53,6 +58,8 @@ function setupMultiplayerConnection(conn) {
                 }
             } else if (data.type === 'shoot') {
                 playShootSound();
+            } else if (data.type === 'open_door') {
+                if (typeof openDoor === 'function') openDoor(data.doorId);
             }
         }
     });
@@ -69,7 +76,6 @@ function playShootSound() {
 }
 
 function iniciarPartidaMultijugador() {
-    // FIX RATÓN: Pedir la captura antes de ocultar cualquier menú
     if(!isMobile && typeof controls !== 'undefined') {
         controls.lock(); 
     }

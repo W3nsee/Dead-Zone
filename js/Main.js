@@ -93,7 +93,6 @@ addEvt('btn-join-room', 'click', () => {
 
 addEvt('btn-resume', 'click', () => { 
     if(!isMobile) {
-        // En PC solo mandamos la petición. La UI se esconderá en el evento 'lock'.
         controls.lock(); 
     } else {
         let ui = document.getElementById('ui-layer'); if(ui) ui.style.display = 'none'; 
@@ -115,6 +114,7 @@ function resetGame() {
     isPaused = false;
     
     try {
+        if (typeof resetDoors === 'function') resetDoors(); 
         zombiesArray.forEach(z => { scene.remove(z.mesh); if(z.audio && z.audio.isPlaying) z.audio.stop(); }); 
         zombiesArray.length = 0; 
         medkits.forEach(m => scene.remove(m)); medkits.length = 0; 
@@ -194,22 +194,47 @@ function checkShopInteraction() {
         return; 
     }
 
-    currentShopTarget = null; let closestDist = 4;
+    currentShopTarget = null; let closestDist = 4; let isDoor = false;
     if(prompt) prompt.style.display = 'none'; if(btnMob) btnMob.style.display = 'none';
-    tiendas.forEach(t => {
-        let dist = camera.position.distanceTo(t.group.position);
-        if (dist < closestDist) {
-            closestDist = dist; currentShopTarget = t; let accion = (!misArmas[t.tipo] || misArmas[t.tipo]?.desbloqueada) ? "Munición" : "Comprar";
-            if(!isMobile && prompt) { prompt.innerText = `[${formatKey(keyMap.interact)}] ${accion} ${t.nombre} ($${t.precio})`; prompt.style.display = 'block'; } 
-            else if(btnMob) { btnMob.style.display = 'flex'; btnMob.innerText = `$${t.precio}`; }
-        }
-    });
+    
+    if (typeof puertas !== 'undefined') {
+        puertas.forEach(p => {
+            if (!p.abierta) {
+                let dist = camera.position.distanceTo(p.group.position);
+                if (dist < closestDist) {
+                    closestDist = dist; currentShopTarget = p; isDoor = true;
+                    if(!isMobile && prompt) { prompt.innerText = `[${formatKey(keyMap.interact)}] ${p.nombre} ($${p.cost})`; prompt.style.display = 'block'; } 
+                    else if(btnMob) { btnMob.style.display = 'flex'; btnMob.innerText = `$${p.cost}`; }
+                }
+            }
+        });
+    }
+
+    if (!isDoor) {
+        tiendas.forEach(t => {
+            let dist = camera.position.distanceTo(t.group.position);
+            if (dist < closestDist) {
+                closestDist = dist; currentShopTarget = t; let accion = (!misArmas[t.tipo] || misArmas[t.tipo]?.desbloqueada) ? "Munición" : "Comprar";
+                if(!isMobile && prompt) { prompt.innerText = `[${formatKey(keyMap.interact)}] ${accion} ${t.nombre} ($${t.precio})`; prompt.style.display = 'block'; } 
+                else if(btnMob) { btnMob.style.display = 'flex'; btnMob.innerText = `$${t.precio}`; }
+            }
+        });
+    }
 }
 
 function procesarCompra(t) {
-    if (puntos >= t.precio) {
-        puntos -= t.precio; let audio = audioBuy.cloneNode(); audio.volume = baseVolumes.buy * globalVolMulti; audio.play().catch(e=>{});
-        if (t.tipo === 'granadas') { granadas = Math.min(4, granadas + 2); } else { if (!misArmas[t.tipo].desbloqueada) { misArmas[t.tipo].desbloqueada = true; equipWeapon(t.tipo); } else { misArmas[t.tipo].res = armasConfig[t.tipo].maxRes; } }
+    let cost = t.precio || t.cost;
+    if (puntos >= cost) {
+        puntos -= cost; let audio = audioBuy.cloneNode(); audio.volume = baseVolumes.buy * globalVolMulti; audio.play().catch(e=>{});
+        if (t.tipo) { 
+            if (t.tipo === 'granadas') { granadas = Math.min(4, granadas + 2); } else { if (!misArmas[t.tipo].desbloqueada) { misArmas[t.tipo].desbloqueada = true; equipWeapon(t.tipo); } else { misArmas[t.tipo].res = armasConfig[t.tipo].maxRes; } }
+        } else { 
+            openDoor(t.id);
+            if(isMultiplayer && connections.length>0) {
+                if(isHost) connections.forEach(c=>c.send({type:'open_door', doorId: t.id}));
+                else connections[0].send({type:'open_door', doorId: t.id});
+            }
+        }
         actualizarHUD();
     }
 }
@@ -217,7 +242,6 @@ function procesarCompra(t) {
 // === CONTROLES PC ===
 let moveF = false, moveB = false, moveL = false, moveR = false; const controls = new THREE.PointerLockControls(camera, document.body); if(!isMobile) cameraGroup.add(controls.getObject());
 
-// SOLUCIÓN AL BUG DEL RATÓN: El menú SOLO desaparece cuando el navegador CONFIRMA el bloqueo
 controls.addEventListener('lock', () => { 
     let ui = document.getElementById('ui-layer'); if(ui) ui.style.display = 'none'; 
     resumeAudio(); isPaused = false; prevTime = performance.now(); 
@@ -249,7 +273,6 @@ document.addEventListener('keyup', (e) => {
 });
 
 document.addEventListener('mousedown', (e) => { 
-    // FALLBACK DE SEGURIDAD: Si por alguna razón ves el ratón mientras juegas, hacer clic lo captura al instante
     if (!isMobile && isGameActive && !isPaused && !controls.isLocked) {
         controls.lock();
         return; 
@@ -310,7 +333,6 @@ function animate() {
     
     const time = performance.now(); const delta = Math.min((time - prevTime) / 1000, 0.1); 
     
-    // RED MULTIJUGADOR AVANZADA (N-Jugadores)
     if (isMultiplayer) {
         let eul = new THREE.Euler(0,0,0, 'YXZ'); eul.setFromQuaternion(camera.quaternion);
         
@@ -323,11 +345,12 @@ function animate() {
             }));
             
             let waveData = { oleada: oleadaActual, restantes: zombiesRestantes, vivos: zombiesVivos, estado: estadoOleada };
+            let doorsData = typeof puertas !== 'undefined' ? puertas.filter(p => p.abierta).map(p => p.id) : [];
 
             if (Math.random() < 0.5 && connections.length > 0) { 
                 connections.forEach(c => c.send({ 
                     type: 'world_state', hostId: myRoomId, players: otherPlayersData, 
-                    zombies: zombiesData, waveInfo: waveData 
+                    zombies: zombiesData, waveInfo: waveData, openedDoors: doorsData 
                 }));
             }
         } else {
@@ -360,7 +383,6 @@ function animate() {
             }
         } else { holdStartProgress = Math.max(0, holdStartProgress - delta * 2); }
     } else {
-        // --- IA Y OLEADAS ---
         if (!isMultiplayer || isHost) {
             if (estadoOleada === "activa") {
                 if (zombiesRestantes > 0 && zombiesVivos < maxZombiesEnMapa) spawnZombie();
@@ -408,7 +430,6 @@ function animate() {
 
         const camFwd = new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion).setY(0).normalize(); const camRight = new THREE.Vector3(1,0,0).applyQuaternion(camera.quaternion).setY(0).normalize(); let blipsHTML = '';
         
-        // --- MOVIMIENTO ZOMBIE ---
         zombiesArray.forEach(zObj => {
             let z = zObj.mesh; zObj.hpGroup.lookAt(camera.position); 
             
